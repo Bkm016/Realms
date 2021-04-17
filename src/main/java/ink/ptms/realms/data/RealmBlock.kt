@@ -15,16 +15,23 @@ import org.bukkit.Particle
  * @author sky
  * @since 2021/3/11 5:09 下午
  */
-class RealmBlock(center: Location, var size: Int) {
+class RealmBlock(
+    center: Location,
+    var size: Int,
+) {
 
     val center = center
         get() = field.clone()
 
     val permissions = HashMap<String, Boolean>()
+    //1: PlayerName
+    //2: Key
     val users = HashMap<String, MutableMap<String, Boolean>>()
 
     val extends = HashMap<Position, Int>()
     val aabb = ArrayList<BoundingBox>()
+
+    var name: String = "领域"
 
     val node: String
         get() = "realm_${center.blockX}_${center.blockY}_${center.blockZ}"
@@ -51,6 +58,7 @@ class RealmBlock(center: Location, var size: Int) {
                     ext.addProperty("${it.key.x},${it.key.y},${it.key.z}", it.value)
                 }
             })
+            json.addProperty("name",name)
         }.toString()
 
     init {
@@ -101,7 +109,9 @@ class RealmBlock(center: Location, var size: Int) {
 
     private fun BoundingBox.buildBox(): List<Position> {
         val array = ArrayList<Position>()
-        Effects.buildCubeStructured(Location(center.world, minX, minY, minZ), Location(center.world, maxX, maxY, maxZ), 0.2) { b ->
+        Effects.buildCubeStructured(Location(center.world, minX, minY, minZ),
+            Location(center.world, maxX, maxY, maxZ),
+            0.2) { b ->
             if (aabb.all { it == this || !it.containsIn(b.x, b.y, b.z) }) {
                 array.add(Position.at(b))
             }
@@ -121,6 +131,6 @@ class RealmBlock(center: Location, var size: Int) {
     }
 
     override fun toString(): String {
-        return "RealmBlock(size=$size, permissions=$permissions, users=$users, extends=$extends, node='$node')"
+        return "RealmBlock(size=$size, name=$name, permissions=$permissions, users=$users, extends=$extends, node='$node')"
     }
 }

@@ -11,6 +11,7 @@ import io.izzel.taboolib.util.item.ItemBuilder
 import io.izzel.taboolib.util.lite.Servers
 import org.bukkit.block.data.type.*
 import org.bukkit.entity.Animals
+import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityDamageByEntityEvent
@@ -59,7 +60,7 @@ object PermDamageAnimals : Permission, Listener {
     @EventHandler(ignoreCancelled = true)
     fun e(e: EntityDamageByEntityEvent) {
         if (e.entity is Animals) {
-            val player = Servers.getAttackerInDamageEvent(e) ?: return
+            val player = e.damager as? Player ?: return
             e.entity.location.getRealm()?.run {
                 if (!hasPermission("admin", player.name) && !hasPermission("damage_animals", player.name)) {
                     e.isCancelled = true
