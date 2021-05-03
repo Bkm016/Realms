@@ -24,6 +24,7 @@ class RealmBlock(
         get() = field.clone()
 
     val permissions = HashMap<String, Boolean>()
+
     //1: PlayerName
     //2: Key
     val users = HashMap<String, MutableMap<String, Boolean>>()
@@ -32,6 +33,8 @@ class RealmBlock(
     val aabb = ArrayList<BoundingBox>()
 
     var name: String = "领域"
+    var joinTell: String = "§e+ §f$name | 欢迎"
+    var leaveTell: String = "§e- §f$name | 慢走"
 
     val node: String
         get() = "realm_${center.blockX}_${center.blockY}_${center.blockZ}"
@@ -58,7 +61,9 @@ class RealmBlock(
                     ext.addProperty("${it.key.x},${it.key.y},${it.key.z}", it.value)
                 }
             })
-            json.addProperty("name",name)
+            json.addProperty("name", name)
+            json.addProperty("joinTell", joinTell)
+            json.addProperty("leaveTell", leaveTell)
         }.toString()
 
     init {

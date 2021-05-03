@@ -2,11 +2,13 @@ package ink.ptms.realms.permission
 
 import ink.ptms.realms.RealmManager.getRealm
 import ink.ptms.realms.RealmManager.getRealmBlock
+import ink.ptms.realms.RealmManager.isAdmin
 import ink.ptms.realms.RealmManager.register
 import ink.ptms.realms.util.display
 import ink.ptms.realms.util.warning
 import io.izzel.taboolib.internal.xseries.XMaterial
 import io.izzel.taboolib.module.inject.TFunction
+import io.izzel.taboolib.module.inject.TListener
 import io.izzel.taboolib.util.item.ItemBuilder
 import org.bukkit.block.data.type.*
 import org.bukkit.entity.Player
@@ -23,6 +25,7 @@ import org.bukkit.inventory.ItemStack
  * @author sky
  * @since 2021/3/18 9:20 上午
  */
+@TListener
 object PermItem : Permission, Listener {
 
     @TFunction.Init
@@ -56,7 +59,7 @@ object PermItem : Permission, Listener {
     @EventHandler(ignoreCancelled = true)
     fun e(e: PlayerDropItemEvent) {
         e.player.location.getRealm()?.run {
-            if (!hasPermission("admin", e.player.name) && !hasPermission("item", e.player.name)) {
+            if (!isAdmin(e.player) && !hasPermission("item", e.player.name)) {
                 e.isCancelled = true
                 e.player.warning()
             }
@@ -67,7 +70,7 @@ object PermItem : Permission, Listener {
     fun e(e: EntityPickupItemEvent) {
         if (e.entity is Player) {
             e.entity.location.getRealm()?.run {
-                if (!hasPermission("admin", e.entity.name) && !hasPermission("item", e.entity.name)) {
+                if (!isAdmin(e.entity as Player) && !hasPermission("item", e.entity.name)) {
                     e.isCancelled = true
                     (e.entity as Player).warning()
                 }

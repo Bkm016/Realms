@@ -1,24 +1,21 @@
 package ink.ptms.realms
 
-import ink.ptms.realms.RealmManager.getRealmBlock
-import ink.ptms.realms.RealmManager.open
-import ink.ptms.realms.RealmManager.openPermissionWorld
-import ink.ptms.realms.RealmManager.openSettings
-import ink.ptms.realms.RealmManager.realmWorld
-import ink.ptms.realms.RealmManager.save
 import ink.ptms.realms.data.RealmBlock
 import ink.ptms.realms.data.RealmWorld
+import ink.ptms.realms.event.RealmsJoinEvent
+import ink.ptms.realms.event.RealmsLeaveEvent
 import ink.ptms.realms.permission.Permission
 import ink.ptms.realms.util.Helper
 import ink.ptms.realms.util.getVertex
 import ink.ptms.realms.util.toAABB
+import ink.ptms.realms.util.warning
 import io.izzel.taboolib.internal.gson.JsonParser
 import io.izzel.taboolib.internal.xseries.XMaterial
 import io.izzel.taboolib.kotlin.Tasks
 import io.izzel.taboolib.kotlin.sendHolographic
-import io.izzel.taboolib.module.inject.TFunction
 import io.izzel.taboolib.module.inject.TListener
 import io.izzel.taboolib.module.inject.TSchedule
+import io.izzel.taboolib.module.locale.TLocale
 import io.izzel.taboolib.module.nms.NMS
 import io.izzel.taboolib.module.nms.impl.Position
 import io.izzel.taboolib.module.nms.nbt.NBTBase
@@ -41,7 +38,6 @@ import org.bukkit.event.block.Action
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockPhysicsEvent
 import org.bukkit.event.block.BlockPlaceEvent
-import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.world.ChunkLoadEvent
 import org.bukkit.event.world.ChunkUnloadEvent
@@ -313,7 +309,9 @@ object RealmManager : Listener, Helper {
     }
 
     fun Permission.register() {
-        permissions.add(this)
+        if (!permissions.contains(this)){
+            permissions.add(this)
+        }
     }
 
     fun Location.getRealm(): RealmBlock? {
@@ -382,7 +380,35 @@ object RealmManager : Listener, Helper {
                 return@inputSign
             }
             this.name = names
-            player.info("当前领域名称更改为了 $names")
+            player.info("当前领域名称更改为了 &f$names")
+            openSettings(player)
+            save()
+        }
+    }
+
+    fun RealmBlock.editJoinTell(player: Player) {
+        Features.inputSign(player, arrayOf("", "", "↑请输入进入提示")) { les ->
+            val info = "${les[0]} | ${les[1]}".screen()
+            if (info.isEmpty()) {
+                player.error("放弃了编辑!")
+                return@inputSign
+            }
+            this.joinTell = info
+            player.info("变更成功")
+            openSettings(player)
+            save()
+        }
+    }
+
+    fun RealmBlock.editLeaveTell(player: Player) {
+        Features.inputSign(player, arrayOf("", "", "↑请输入离开提示")) { les ->
+            val info = "${les[0]} | ${les[1]}".screen()
+            if (info.isEmpty()) {
+                player.error("放弃了编辑!")
+                return@inputSign
+            }
+            this.leaveTell = info
+            player.info("变更成功")
             openSettings(player)
             save()
         }
@@ -426,9 +452,14 @@ object RealmManager : Listener, Helper {
                     "&8名称会在一些场景中用到"
                 )
                 .colored().build())
-            .put('1', ItemBuilder(XMaterial.COMMAND_BLOCK).name("&f全局权限").lore("&7将作用于所有玩家").colored().build())
-            .put('2', ItemBuilder(XMaterial.CHAIN_COMMAND_BLOCK).name("&f个人权限").lore("&7将作用于特定玩家").colored().build())
-            .put('3', ItemBuilder(XMaterial.OBSERVER).name("&f领域设置").lore("&7一些零散的设置").colored().build())
+            .put('1', ItemBuilder(XMaterial.NAME_TAG).name("&f进入提示")
+                .lore(
+                    "&7当前提示: &f${this.name}",
+                    "",
+                    "&7点击编辑:",
+                    "&8名称会在一些场景中用到"
+                )
+                .colored().build())
             .click { e ->
                 when (e.slot) {
                     '0' -> {
@@ -457,7 +488,13 @@ object RealmManager : Listener, Helper {
 
             override fun getRows() = 6
 
-            override fun getElements() = RealmManager.permissions.filter { it.worldSide }.sortedBy { it.priority }
+            override fun getElements(): List<Permission> {
+                val list = RealmManager.permissions.filter { it.worldSide }.sortedBy { it.priority }.toMutableList()
+                if (!player.isOp) {
+                    list.removeAll(list.filter { it.adminSide == player.isOp })
+                }
+                return list
+            }
 
             override fun getSlots() = Items.INVENTORY_CENTER.toList()
 
@@ -475,6 +512,10 @@ object RealmManager : Listener, Helper {
             }
 
             override fun onClick(event: ClickEvent, element: Permission) {
+                if (element.adminSide && !player.isOp) {
+                    event.clicker.error("该选项无效!")
+                    return
+                }
                 permissions[element.id] = !hasPermission(element.id, def = element.default)
                 open(page)
                 player.playSound(player.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 2f)
@@ -482,6 +523,9 @@ object RealmManager : Listener, Helper {
             }
 
             override fun generateItem(player: Player, element: Permission, index: Int, slot: Int): ItemStack {
+                if (element.adminSide && !player.isOp) {
+                    return ItemStack(Material.BARRIER)
+                }
                 return element.generateMenuItem(hasPermission(element.id, def = element.default))
             }
         }.open()
@@ -576,7 +620,15 @@ object RealmManager : Listener, Helper {
 
             override fun getRows() = 6
 
-            override fun getElements() = RealmManager.permissions.filter { it.playerSide }.sortedBy { it.priority }
+            override fun getElements(): List<Permission> {
+                val list = RealmManager.permissions.filter { it.worldSide }.sortedBy { it.priority }.toMutableList()
+                list.toList().forEach {
+                    if (it.adminSide && !player.isOp) {
+                        list.remove(it)
+                    }
+                }
+                return list
+            }
 
             override fun getSlots() = Items.INVENTORY_CENTER.toList()
 
@@ -629,11 +681,39 @@ object RealmManager : Listener, Helper {
             json["name"].asString.also { name ->
                 realmBlock.name = name
             }
+            json["joinTell"].asString.also { value ->
+                realmBlock.joinTell = value
+            }
+            json["leaveTell"].asString.also { value ->
+                realmBlock.leaveTell = value
+            }
             realmBlock.update()
         }
     }
 
     private fun List<String>.toLocation(world: World): Location {
         return Location(world, Coerce.toDouble(this[0]), Coerce.toDouble(this[1]), Coerce.toDouble(this[2]))
+    }
+
+    @EventHandler
+    fun onJoinEvent(event: RealmsJoinEvent) {
+        val realm = event.realmBlock ?: return
+        val message = realm.joinTell.split(" | ")
+        if (message.size >= 2){
+            TLocale.Display.sendTitle(event.player, message[0], message[1],20,40,20)
+            return
+        }
+        TLocale.Display.sendTitle(event.player, message[0], "",20,40,20)
+    }
+
+    @EventHandler
+    fun onLeaveEvent(event: RealmsLeaveEvent) {
+        val realm = event.realmBlock ?: return
+        val message = realm.leaveTell.split(" | ")
+        if (message.size >= 2){
+            TLocale.Display.sendTitle(event.player, message[0], message[1],20,40,20)
+            return
+        }
+        TLocale.Display.sendTitle(event.player, message[0], "",20,40,20)
     }
 }

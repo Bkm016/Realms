@@ -1,31 +1,26 @@
 package ink.ptms.realms.permission
 
 import ink.ptms.realms.RealmManager.getRealm
-import ink.ptms.realms.RealmManager.getRealmBlock
-import ink.ptms.realms.RealmManager.isAdmin
 import ink.ptms.realms.RealmManager.register
 import ink.ptms.realms.util.display
-import ink.ptms.realms.util.warning
 import io.izzel.taboolib.internal.xseries.XMaterial
 import io.izzel.taboolib.module.inject.TFunction
 import io.izzel.taboolib.module.inject.TListener
 import io.izzel.taboolib.util.item.ItemBuilder
-import org.bukkit.block.data.type.*
-import org.bukkit.entity.Villager
+import io.lumine.xikage.mythicmobs.api.bukkit.events.MythicMobSpawnEvent
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
-import org.bukkit.event.player.PlayerInteractAtEntityEvent
+import org.bukkit.inventory.ItemFlag
 import org.bukkit.inventory.ItemStack
 
 /**
  * Realms
- * ink.ptms.realms.permission.PermInteract
  *
- * @author sky
- * @since 2021/3/18 9:20 上午
+ * @author 枫溪
+ * @since 2021/4/18 8:30 上午
  */
 @TListener
-object PermTrade : Permission, Listener {
+object PermMythicMobSpawn : Permission, Listener {
 
     @TFunction.Init
     private fun init() {
@@ -33,7 +28,13 @@ object PermTrade : Permission, Listener {
     }
 
     override val id: String
-        get() = "trade"
+        get() = "mythicmob_spawn"
+
+    override val default: Boolean
+        get() = true
+
+    override val adminSide: Boolean
+        get() = true
 
     override val worldSide: Boolean
         get() = true
@@ -42,27 +43,27 @@ object PermTrade : Permission, Listener {
         get() = true
 
     override fun generateMenuItem(value: Boolean): ItemStack {
-        return ItemBuilder(XMaterial.EMERALD)
-            .name("&f交易 ${value.display}")
+        return ItemBuilder(XMaterial.SLIME_SPAWN_EGG)
+            .name("&fMythicMobs产生 ${value.display}")
             .lore(
+                "&c管理员选项",
                 "",
                 "&7允许行为:",
-                "&8村民交易"
+                "&8生成MythicMobs的生物"
             ).also {
                 if (value) {
                     it.shiny()
                 }
-            }.colored().build()
+            }
+            .flags(*ItemFlag.values())
+            .colored().build()
     }
 
     @EventHandler(ignoreCancelled = true)
-    fun e(e: PlayerInteractAtEntityEvent) {
-        if (e.rightClicked is Villager) {
-            e.rightClicked.location.getRealm()?.run {
-                if (!isAdmin(e.player) && !hasPermission("trade", e.player.name)) {
-                    e.isCancelled = true
-                    e.player.warning()
-                }
+    fun e(e: MythicMobSpawnEvent) {
+        e.entity.location.getRealm()?.run {
+            if (!hasPermission("mythicmob_spawn", def = false)) {
+                e.entity.remove()
             }
         }
     }

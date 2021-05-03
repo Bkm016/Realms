@@ -22,7 +22,7 @@ class PapiHook : PlaceholderHook.Expansion {
 
     override fun onPlaceholderRequest(player: Player, params: String): String {
         return when (params) {
-            "where" -> RealmManager.getRealmBlock(player.location)?.name ?: "null"
+            "where" -> RealmManager.getRealmBlock(player.location)?.name ?: "野外"
             else -> "null"
         }
     }

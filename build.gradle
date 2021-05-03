@@ -11,7 +11,7 @@ sourceCompatibility = '1.8'
 targetCompatibility = '1.8'
 
 taboolib {
-    tabooLibVersion = '5.62'
+    tabooLibVersion = '5.64'
     loaderVersion = '2.12'
     classifier = null
     builtin = true
@@ -24,6 +24,7 @@ repositories {
 dependencies {
     implementation 'ink.ptms.core:v11604:11604:all'
     implementation 'org.jetbrains.kotlin:kotlin-stdlib'
+    implementation 'public:MythicMobs:4.11.0'
     implementation fileTree(dir: 'libs', includes: ['*.jar'])
 }
 

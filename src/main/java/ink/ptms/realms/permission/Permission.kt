@@ -39,6 +39,12 @@ interface Permission {
     val playerSide: Boolean
 
     /**
+     * 管理员可视
+     */
+    val adminSide: Boolean
+        get() = false
+
+    /**
      * 构建界面物品
      */
     fun generateMenuItem(value: Boolean): ItemStack

@@ -34,5 +34,5 @@ val Boolean.display: String
     get() = if (this) "§a允许" else "§c阻止"
 
 fun HumanEntity.warning() {
-    TLocale.Display.sendActionBar(this as Player, "&c&l:(&7 当前行为受所属领域保护.")
+    TLocale.Display.sendActionBar(this as Player, "§c§l:(§7 当前行为受所属领域保护.")
 }

@@ -2,13 +2,16 @@ package ink.ptms.realms.permission
 
 import ink.ptms.realms.RealmManager.getRealm
 import ink.ptms.realms.RealmManager.getRealmBlock
+import ink.ptms.realms.RealmManager.isAdmin
 import ink.ptms.realms.RealmManager.register
 import ink.ptms.realms.util.display
 import ink.ptms.realms.util.warning
 import io.izzel.taboolib.internal.xseries.XMaterial
 import io.izzel.taboolib.module.inject.TFunction
+import io.izzel.taboolib.module.inject.TListener
 import io.izzel.taboolib.util.item.ItemBuilder
 import org.bukkit.block.data.type.*
+import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryOpenEvent
@@ -22,6 +25,7 @@ import org.bukkit.inventory.ItemStack
  * @author sky
  * @since 2021/3/18 9:20 上午
  */
+@TListener
 object PermContainer : Permission, Listener {
 
     @TFunction.Init
@@ -58,7 +62,8 @@ object PermContainer : Permission, Listener {
     fun e(e: InventoryOpenEvent) {
         if (e.inventory.location != null) {
             e.inventory.location?.getRealm()?.run {
-                if (!hasPermission("admin", e.player.name) && !hasPermission("container", e.player.name)) {
+                val player = e.player as? Player ?: return
+                if (!isAdmin(player) && !hasPermission("container", e.player.name)) {
                     e.isCancelled = true
                     e.player.warning()
                 }
