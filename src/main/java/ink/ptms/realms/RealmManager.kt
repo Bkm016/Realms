@@ -37,10 +37,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
-import org.bukkit.event.block.Action
-import org.bukkit.event.block.BlockBreakEvent
-import org.bukkit.event.block.BlockPhysicsEvent
-import org.bukkit.event.block.BlockPlaceEvent
+import org.bukkit.event.block.*
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.world.ChunkLoadEvent
 import org.bukkit.event.world.ChunkUnloadEvent
@@ -130,6 +127,31 @@ object RealmManager : Listener, Helper {
     private fun e(e: BlockDataDeleteEvent) {
         if (e.reason != BlockDataDeleteEvent.Reason.BREAK) {
             e.isCancelled = true
+        }
+    }
+
+    /**
+     * 活塞推出方块
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    private fun e(e: BlockPistonExtendEvent) {
+        e.check(e.blocks)
+    }
+
+    /**
+     * 胡塞收回方块
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    private fun e(e: BlockPistonRetractEvent) {
+        e.check(e.blocks)
+    }
+
+    private fun BlockPistonEvent.check(blocks: List<Block>) {
+        for (block in blocks) {
+            if (block.isRealmBlock()) {
+                isCancelled = true
+                return
+            }
         }
     }
 
@@ -340,8 +362,7 @@ object RealmManager : Listener, Helper {
     }
 
     fun Block.getRealmBlock(): RealmBlock? {
-        val at = Position.at(location)
-        return world.realmWorld().realms[chunk.chunkKey]?.firstOrNull { it.center == location || it.extends.any { p -> p.key == at } }
+        return world.realms().firstOrNull { it.center == location || it.extends.any { p -> p.key == Position.at(location) } }
     }
 
     fun ItemStack.getRealmSize(): Int {
