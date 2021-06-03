@@ -19,7 +19,7 @@ import org.bukkit.inventory.ItemStack
  * @author 枫溪
  * @since 2021/4/18 8:30 上午
  */
-@TListener
+@TListener(depend = ["MythicMobs"])
 object PermMythicMobSpawn : Permission, Listener {
 
     @TFunction.Init

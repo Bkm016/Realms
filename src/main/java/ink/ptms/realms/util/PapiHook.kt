@@ -6,8 +6,6 @@ import io.izzel.taboolib.module.compat.PlaceholderHook
 import io.izzel.taboolib.module.inject.THook
 import org.bukkit.entity.Player
 import org.bukkit.plugin.Plugin
-import java.math.RoundingMode
-import java.text.DecimalFormat
 
 @THook
 class PapiHook : PlaceholderHook.Expansion {

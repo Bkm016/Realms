@@ -2,7 +2,6 @@ package ink.ptms.realms.util
 
 import io.izzel.taboolib.kotlin.navigation.pathfinder.bukkit.BoundingBox
 import io.izzel.taboolib.module.locale.TLocale
-import io.izzel.taboolib.module.nms.impl.Position
 import org.bukkit.Location
 import org.bukkit.entity.HumanEntity
 import org.bukkit.entity.Player

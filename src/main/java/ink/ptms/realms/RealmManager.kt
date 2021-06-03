@@ -8,10 +8,12 @@ import ink.ptms.realms.permission.Permission
 import ink.ptms.realms.util.Helper
 import ink.ptms.realms.util.getVertex
 import ink.ptms.realms.util.toAABB
-import ink.ptms.realms.util.warning
 import io.izzel.taboolib.internal.gson.JsonParser
 import io.izzel.taboolib.internal.xseries.XMaterial
 import io.izzel.taboolib.kotlin.Tasks
+import io.izzel.taboolib.kotlin.blockdb.BlockFactory.createDataContainer
+import io.izzel.taboolib.kotlin.blockdb.Data
+import io.izzel.taboolib.kotlin.blockdb.event.BlockDataDeleteEvent
 import io.izzel.taboolib.kotlin.sendHolographic
 import io.izzel.taboolib.module.inject.TListener
 import io.izzel.taboolib.module.inject.TSchedule
@@ -30,6 +32,7 @@ import io.izzel.taboolib.util.item.inventory.linked.MenuLinked
 import io.izzel.taboolib.util.lite.Effects
 import org.bukkit.*
 import org.bukkit.block.Block
+import org.bukkit.block.data.Waterlogged
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -86,7 +89,8 @@ object RealmManager : Listener, Helper {
                         .range(100.0)
                         .data(Effects.ColorData(Color.fromRGB(152, 249, 255), 1f))
                         .play()
-                    Effects.buildLine(realm.center.toCenterLocation(),
+                    Effects.buildLine(
+                        realm.center.toCenterLocation(),
                         pos.toLocation(realm.center.world).toCenterLocation(),
                         { loc ->
                             Effects.create(Particle.REDSTONE, loc)
@@ -95,7 +99,8 @@ object RealmManager : Listener, Helper {
                                 .data(Effects.ColorData(Color.fromRGB(152, 249, 255), 1f))
                                 .play()
                         },
-                        0.35)
+                        0.35
+                    )
                 }
                 if (realm.hasPermission("particle", def = true) && baffle.hasNext()) {
                     realm.borderDisplay()
@@ -122,8 +127,8 @@ object RealmManager : Listener, Helper {
     }
 
     @EventHandler
-    private fun e(e: BlockPhysicsEvent) {
-        if (e.block.type.isSolid && e.block.isRealmBlock()) {
+    private fun e(e: BlockDataDeleteEvent) {
+        if (e.reason != BlockDataDeleteEvent.Reason.BREAK) {
             e.isCancelled = true
         }
     }
@@ -189,6 +194,12 @@ object RealmManager : Listener, Helper {
             when {
                 vertex.isEmpty() -> {
                     RealmBlock(e.block.location, realmSize).create(e.player)
+                    e.block.createDataContainer()["realms"] = Data(true)
+                    e.block.blockData = e.block.blockData.also {
+                        if (it is Waterlogged) {
+                            it.isWaterlogged = true
+                        }
+                    }
                     e.player.playSound(e.player.location, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1f)
                     e.player.sendHolographic(e.block.location.toCenterLocation().add(0.0, 1.0, 0.0), "&e:)", "&f领域已创建")
                 }
@@ -219,14 +230,12 @@ object RealmManager : Listener, Helper {
 
                         override fun onBuild(inventory: Inventory) {
                             if (hasPreviousPage()) {
-                                inventory.setItem(47,
-                                    ItemBuilder(XMaterial.SPECTRAL_ARROW).name("&f上一页").colored().build())
+                                inventory.setItem(47, ItemBuilder(XMaterial.SPECTRAL_ARROW).name("&f上一页").colored().build())
                             } else {
                                 inventory.setItem(47, ItemBuilder(XMaterial.ARROW).name("&8上一页").colored().build())
                             }
                             if (hasNextPage()) {
-                                inventory.setItem(51,
-                                    ItemBuilder(XMaterial.SPECTRAL_ARROW).name("&f下一页").colored().build())
+                                inventory.setItem(51, ItemBuilder(XMaterial.SPECTRAL_ARROW).name("&f下一页").colored().build())
                             } else {
                                 inventory.setItem(51, ItemBuilder(XMaterial.ARROW).name("&8下一页").colored().build())
                             }
@@ -282,11 +291,15 @@ object RealmManager : Listener, Helper {
                             }
                             e.block.type = pt
                             e.block.blockData = pd
+                            e.block.createDataContainer()["realms"] = Data(true)
+                            e.block.blockData = e.block.blockData.also {
+                                if (it is Waterlogged) {
+                                    it.isWaterlogged = true
+                                }
+                            }
                             e.player.closeInventory()
                             e.player.playSound(e.player.location, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1f)
-                            e.player.sendHolographic(e.block.location.toCenterLocation().add(0.0, 1.0, 0.0),
-                                "&e:)",
-                                "&f领域已创建")
+                            e.player.sendHolographic(e.block.location.toCenterLocation().add(0.0, 1.0, 0.0), "&e:)", "&f领域已创建")
                         }
 
                         override fun generateItem(
@@ -309,7 +322,7 @@ object RealmManager : Listener, Helper {
     }
 
     fun Permission.register() {
-        if (!permissions.contains(this)){
+        if (!permissions.contains(this)) {
             permissions.add(this)
         }
     }
@@ -327,8 +340,8 @@ object RealmManager : Listener, Helper {
     }
 
     fun Block.getRealmBlock(): RealmBlock? {
-        return world.realms()
-            .firstOrNull { it.center == location || it.extends.any { p -> p.key == Position.at(location) } }
+        val at = Position.at(location)
+        return world.realmWorld().realms[chunk.chunkKey]?.firstOrNull { it.center == location || it.extends.any { p -> p.key == at } }
     }
 
     fun ItemStack.getRealmSize(): Int {
@@ -365,11 +378,11 @@ object RealmManager : Listener, Helper {
     }
 
     fun RealmBlock.getAdmin(): String {
-        return this.users.keys.firstOrNull { hasPermission("admin", it, false) }!!
+        return users.keys.firstOrNull { hasPermission("admin", it, false) }!!
     }
 
     fun RealmBlock.isAdmin(player: Player): Boolean {
-        return this.getAdmin() == player.name || player.isOp
+        return getAdmin() == player.name || player.isOp
     }
 
     fun RealmBlock.editName(player: Player) {
@@ -379,7 +392,7 @@ object RealmManager : Listener, Helper {
                 player.error("放弃了编辑!")
                 return@inputSign
             }
-            this.name = names
+            name = names
             player.info("当前领域名称更改为了 &f$names")
             openSettings(player)
             save()
@@ -393,7 +406,7 @@ object RealmManager : Listener, Helper {
                 player.error("放弃了编辑!")
                 return@inputSign
             }
-            this.joinTell = info
+            joinTell = info
             player.info("变更成功")
             openSettings(player)
             save()
@@ -407,7 +420,7 @@ object RealmManager : Listener, Helper {
                 player.error("放弃了编辑!")
                 return@inputSign
             }
-            this.leaveTell = info
+            leaveTell = info
             player.info("变更成功")
             openSettings(player)
             save()
@@ -420,12 +433,14 @@ object RealmManager : Listener, Helper {
             .title("领域管理")
             .rows(3)
             .items("", "#0#1#2#3#")
-            .put('0', ItemBuilder(XMaterial.PAINTING).name("&f领域信息")
-                .lore(
-                    "&7名称: &f${this.name}",
-                    "&7持有者: &f${this.getAdmin()}",
-                )
-                .colored().build())
+            .put(
+                '0', ItemBuilder(XMaterial.PAINTING).name("&f领域信息")
+                    .lore(
+                        "&7名称: &f${this.name}",
+                        "&7持有者: &f${this.getAdmin()}",
+                    )
+                    .colored().build()
+            )
             .put('1', ItemBuilder(XMaterial.COMMAND_BLOCK).name("&f全局权限").lore("&7将作用于所有玩家").colored().build())
             .put('2', ItemBuilder(XMaterial.CHAIN_COMMAND_BLOCK).name("&f个人权限").lore("&7将作用于特定玩家").colored().build())
             .put('3', ItemBuilder(XMaterial.OBSERVER).name("&f领域设置").lore("&7一些零散的设置").colored().build())
@@ -442,35 +457,46 @@ object RealmManager : Listener, Helper {
         player.playSound(player.location, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1f)
         MenuBuilder.builder(Realms.plugin)
             .title("领域管理 [领域设置]")
-            .rows(4)
-            .items("", "#0")
-            .put('0', ItemBuilder(XMaterial.NAME_TAG).name("&f领域名称")
-                .lore(
-                    "&7当前名称: &f${this.name}",
-                    "",
-                    "&7点击编辑:",
-                    "&8名称会在一些场景中用到"
-                )
-                .colored().build())
-            .put('1', ItemBuilder(XMaterial.NAME_TAG).name("&f进入提示")
-                .lore(
-                    "&7当前提示: &f${this.name}",
-                    "",
-                    "&7点击编辑:",
-                    "&8名称会在一些场景中用到"
-                )
-                .colored().build())
+            .rows(3)
+            .items("", "#012")
+            .put(
+                '0', ItemBuilder(XMaterial.NAME_TAG).name("&f领域名称")
+                    .lore(
+                        "&7当前名称: &f${name}",
+                        "",
+                        "&7点击编辑:",
+                        "&8名称会在一些场景中用到"
+                    ).colored().build()
+            )
+            .put(
+                '1', ItemBuilder(XMaterial.NAME_TAG).name("&f进入提示")
+                    .lore(
+                        "&7当前提示: &f${joinTell}",
+                        "",
+                        "&7点击编辑:",
+                        "&8进入领地时的提示"
+                    ).colored().build()
+            )
+            .put(
+                '2', ItemBuilder(XMaterial.NAME_TAG).name("&f离开提示")
+                    .lore(
+                        "&7当前提示: &f${leaveTell}",
+                        "",
+                        "&7点击编辑:",
+                        "&8离开领地时的提示"
+                    ).colored().build()
+            )
             .click { e ->
                 when (e.slot) {
                     '0' -> {
-                        if (!this.isAdmin(player)) {
-                            player.error("权限不足!")
-                            return@click
-                        }
-                        this.editName(player)
+                        editName(player)
                     }
-                    '1' -> openPermissionWorld(player)
-                    '2' -> openPermissionUsers(player)
+                    '1' -> {
+                        editJoinTell(player)
+                    }
+                    '2' -> {
+                        editLeaveTell(player)
+                    }
                 }
             }.open(player)
     }
@@ -699,21 +725,21 @@ object RealmManager : Listener, Helper {
     fun onJoinEvent(event: RealmsJoinEvent) {
         val realm = event.realmBlock ?: return
         val message = realm.joinTell.split(" | ")
-        if (message.size >= 2){
-            TLocale.Display.sendTitle(event.player, message[0], message[1],20,40,20)
+        if (message.size >= 2) {
+            TLocale.Display.sendTitle(event.player, message[0], message[1], 20, 40, 20)
             return
         }
-        TLocale.Display.sendTitle(event.player, message[0], "",20,40,20)
+        TLocale.Display.sendTitle(event.player, message[0], "", 20, 40, 20)
     }
 
     @EventHandler
     fun onLeaveEvent(event: RealmsLeaveEvent) {
         val realm = event.realmBlock ?: return
         val message = realm.leaveTell.split(" | ")
-        if (message.size >= 2){
-            TLocale.Display.sendTitle(event.player, message[0], message[1],20,40,20)
+        if (message.size >= 2) {
+            TLocale.Display.sendTitle(event.player, message[0], message[1], 20, 40, 20)
             return
         }
-        TLocale.Display.sendTitle(event.player, message[0], "",20,40,20)
+        TLocale.Display.sendTitle(event.player, message[0], "", 20, 40, 20)
     }
 }

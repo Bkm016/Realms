@@ -8,6 +8,7 @@ import org.bukkit.event.player.PlayerMoveEvent
 
 @TListener
 class RealmsJoinLeaveListener : Listener {
+
     @EventHandler
     fun onPlayerMoveEvent(event: PlayerMoveEvent) {
         if (event.from.x != event.to.x || event.from.y != event.from.y || event.from.z != event.to.z) {
@@ -23,5 +24,4 @@ class RealmsJoinLeaveListener : Listener {
             }
         }
     }
-
 }

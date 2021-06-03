@@ -13,8 +13,6 @@ import org.bukkit.attribute.Attribute
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
-import java.math.RoundingMode
-import java.text.DecimalFormat
 import java.util.*
 
 /**
