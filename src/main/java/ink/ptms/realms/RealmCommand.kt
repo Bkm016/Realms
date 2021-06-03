@@ -25,11 +25,11 @@ class RealmCommand : BaseMainCommand() {
 
     @SubCommand(description = "设置领域大小", arguments = ["大小"], type = CommandType.PLAYER)
     fun setRealmSize(sender: Player, args: Array<String>) {
-        if (Items.isNull(sender.itemInHand)) {
+        if (Items.isNull(sender.inventory.itemInMainHand)) {
             sender.sendMessage("你无法给空气设置领域大小。")
             return
         }
-        sender.itemInHand.setRealmSize(Coerce.toInteger(args[0]))
-        sender.sendMessage("当前手中物品的领域大小为${sender.itemInHand.getRealmSize()}格。")
+        sender.inventory.itemInMainHand.setRealmSize(Coerce.toInteger(args[0]))
+        sender.sendMessage("当前手中物品的领域大小为${sender.inventory.itemInMainHand.getRealmSize()}格。")
     }
 }

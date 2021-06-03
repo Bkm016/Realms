@@ -1,7 +1,6 @@
 package ink.ptms.realms.permission
 
 import ink.ptms.realms.RealmManager.getRealm
-import ink.ptms.realms.RealmManager.getRealmBlock
 import ink.ptms.realms.RealmManager.isAdmin
 import ink.ptms.realms.RealmManager.register
 import ink.ptms.realms.util.display
@@ -10,25 +9,19 @@ import io.izzel.taboolib.internal.xseries.XMaterial
 import io.izzel.taboolib.module.inject.TFunction
 import io.izzel.taboolib.module.inject.TListener
 import io.izzel.taboolib.util.item.ItemBuilder
-import io.izzel.taboolib.util.lite.Servers
-import org.bukkit.block.data.type.*
-import org.bukkit.entity.Animals
-import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
-import org.bukkit.event.entity.EntityDamageByEntityEvent
-import org.bukkit.inventory.ItemFlag
+import org.bukkit.event.player.PlayerBucketEvent
 import org.bukkit.inventory.ItemStack
 
 /**
  * Realms
- * ink.ptms.realms.permission.PermDamageAnimals
  *
- * @author sky
- * @since 2021/3/18 9:20 上午
+ * @author 枫溪
+ * @since 2021/4/18 8:30 上午
  */
 @TListener
-object PermDamageAnimals : Permission, Listener {
+object PermBucket : Permission, Listener {
 
     @TFunction.Init
     private fun init() {
@@ -36,7 +29,7 @@ object PermDamageAnimals : Permission, Listener {
     }
 
     override val id: String
-        get() = "damage_animals"
+        get() = "bucket"
 
     override val worldSide: Boolean
         get() = true
@@ -45,15 +38,13 @@ object PermDamageAnimals : Permission, Listener {
         get() = true
 
     override fun generateMenuItem(value: Boolean): ItemStack {
-        return ItemBuilder(XMaterial.IRON_SWORD)
-            .name("&f攻击动物 ${value.display}")
+        return ItemBuilder(XMaterial.BUCKET)
+            .name("&f使用桶 ${value.display}")
             .lore(
                 "",
                 "&7允许行为:",
-                "&8对动物 (Animals) 造成伤害"
-            )
-            .flags(*ItemFlag.values())
-            .also {
+                "&8使用桶"
+            ).also {
                 if (value) {
                     it.shiny()
                 }
@@ -61,14 +52,11 @@ object PermDamageAnimals : Permission, Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
-    fun e(e: EntityDamageByEntityEvent) {
-        if (e.entity is Animals) {
-            val player = e.damager as? Player ?: return
-            e.entity.location.getRealm()?.run {
-                if (!isAdmin(player) && !hasPermission("damage_animals", player.name)) {
-                    e.isCancelled = true
-                    player.warning()
-                }
+    fun e(e: PlayerBucketEvent) {
+        e.player.location.getRealm()?.run {
+            if (!isAdmin(e.player) && !hasPermission("bucket", e.player.name)) {
+                e.isCancelled = true
+                e.player.warning()
             }
         }
     }

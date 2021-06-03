@@ -1,19 +1,21 @@
 package ink.ptms.realms
 
-import ink.ptms.realms.RealmManager.realmWorld
-import ink.ptms.realms.RealmManager.save
 import ink.ptms.realms.data.RealmBlock
 import ink.ptms.realms.data.RealmWorld
+import ink.ptms.realms.event.RealmsJoinEvent
+import ink.ptms.realms.event.RealmsLeaveEvent
 import ink.ptms.realms.permission.Permission
+import ink.ptms.realms.util.Helper
 import ink.ptms.realms.util.getVertex
 import ink.ptms.realms.util.toAABB
+import ink.ptms.realms.util.warning
 import io.izzel.taboolib.internal.gson.JsonParser
 import io.izzel.taboolib.internal.xseries.XMaterial
 import io.izzel.taboolib.kotlin.Tasks
 import io.izzel.taboolib.kotlin.sendHolographic
-import io.izzel.taboolib.module.inject.TFunction
 import io.izzel.taboolib.module.inject.TListener
 import io.izzel.taboolib.module.inject.TSchedule
+import io.izzel.taboolib.module.locale.TLocale
 import io.izzel.taboolib.module.nms.NMS
 import io.izzel.taboolib.module.nms.impl.Position
 import io.izzel.taboolib.module.nms.nbt.NBTBase
@@ -36,7 +38,6 @@ import org.bukkit.event.block.Action
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockPhysicsEvent
 import org.bukkit.event.block.BlockPlaceEvent
-import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.world.ChunkLoadEvent
 import org.bukkit.event.world.ChunkUnloadEvent
@@ -53,7 +54,7 @@ import java.util.concurrent.ConcurrentHashMap
  * @since 2021/3/11 5:09 下午
  */
 @TListener
-object RealmManager : Listener {
+object RealmManager : Listener, Helper {
 
     private val permissions = ArrayList<Permission>()
     private val worlds = ConcurrentHashMap<String, RealmWorld>()
@@ -85,13 +86,16 @@ object RealmManager : Listener {
                         .range(100.0)
                         .data(Effects.ColorData(Color.fromRGB(152, 249, 255), 1f))
                         .play()
-                    Effects.buildLine(realm.center.toCenterLocation(), pos.toLocation(realm.center.world).toCenterLocation(), { loc ->
-                        Effects.create(Particle.REDSTONE, loc)
-                            .count(1)
-                            .range(100.0)
-                            .data(Effects.ColorData(Color.fromRGB(152, 249, 255), 1f))
-                            .play()
-                    }, 0.35)
+                    Effects.buildLine(realm.center.toCenterLocation(),
+                        pos.toLocation(realm.center.world).toCenterLocation(),
+                        { loc ->
+                            Effects.create(Particle.REDSTONE, loc)
+                                .count(1)
+                                .range(100.0)
+                                .data(Effects.ColorData(Color.fromRGB(152, 249, 255), 1f))
+                                .play()
+                        },
+                        0.35)
                 }
                 if (realm.hasPermission("particle", def = true) && baffle.hasNext()) {
                     realm.borderDisplay()
@@ -215,12 +219,14 @@ object RealmManager : Listener {
 
                         override fun onBuild(inventory: Inventory) {
                             if (hasPreviousPage()) {
-                                inventory.setItem(47, ItemBuilder(XMaterial.SPECTRAL_ARROW).name("&f上一页").colored().build())
+                                inventory.setItem(47,
+                                    ItemBuilder(XMaterial.SPECTRAL_ARROW).name("&f上一页").colored().build())
                             } else {
                                 inventory.setItem(47, ItemBuilder(XMaterial.ARROW).name("&8上一页").colored().build())
                             }
                             if (hasNextPage()) {
-                                inventory.setItem(51, ItemBuilder(XMaterial.SPECTRAL_ARROW).name("&f下一页").colored().build())
+                                inventory.setItem(51,
+                                    ItemBuilder(XMaterial.SPECTRAL_ARROW).name("&f下一页").colored().build())
                             } else {
                                 inventory.setItem(51, ItemBuilder(XMaterial.ARROW).name("&8下一页").colored().build())
                             }
@@ -239,9 +245,10 @@ object RealmManager : Listener {
                         }
 
                         override fun onClick(event: ClickEvent, element: RealmBlock) {
-                            val verify = e.block.location.toCenterLocation().toAABB(realmSize).getVertex().mapNotNull { vertex ->
-                                vertex.toLocation(e.block.world).getRealm()
-                            }
+                            val verify =
+                                e.block.location.toCenterLocation().toAABB(realmSize).getVertex().mapNotNull { vertex ->
+                                    vertex.toLocation(e.block.world).getRealm()
+                                }
                             // 验证重合领域权限
                             if (verify.any { !it.hasPermission("admin", e.player.name) }) {
                                 e.player.closeInventory()
@@ -277,10 +284,17 @@ object RealmManager : Listener {
                             e.block.blockData = pd
                             e.player.closeInventory()
                             e.player.playSound(e.player.location, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1f)
-                            e.player.sendHolographic(e.block.location.toCenterLocation().add(0.0, 1.0, 0.0), "&e:)", "&f领域已创建")
+                            e.player.sendHolographic(e.block.location.toCenterLocation().add(0.0, 1.0, 0.0),
+                                "&e:)",
+                                "&f领域已创建")
                         }
 
-                        override fun generateItem(player: Player, element: RealmBlock, index: Int, slot: Int): ItemStack {
+                        override fun generateItem(
+                            player: Player,
+                            element: RealmBlock,
+                            index: Int,
+                            slot: Int,
+                        ): ItemStack {
                             return ItemBuilder(XMaterial.PAPER)
                                 .name("&f领域 ${element.center.blockX},${element.center.blockY},${element.center.blockZ}")
                                 .lore(
@@ -295,11 +309,17 @@ object RealmManager : Listener {
     }
 
     fun Permission.register() {
-        permissions.add(this)
+        if (!permissions.contains(this)){
+            permissions.add(this)
+        }
     }
 
     fun Location.getRealm(): RealmBlock? {
         return world.realms().firstOrNull { it.inside(this) }
+    }
+
+    fun getRealmBlock(location: Location): RealmBlock? {
+        return location.getRealm()
     }
 
     fun Block.isRealmBlock(): Boolean {
@@ -307,7 +327,8 @@ object RealmManager : Listener {
     }
 
     fun Block.getRealmBlock(): RealmBlock? {
-        return world.realms().firstOrNull { it.center == location || it.extends.any { p -> p.key == Position.at(location) } }
+        return world.realms()
+            .firstOrNull { it.center == location || it.extends.any { p -> p.key == Position.at(location) } }
     }
 
     fun ItemStack.getRealmSize(): Int {
@@ -343,16 +364,111 @@ object RealmManager : Listener {
         center.chunk.persistentDataContainer.remove(NamespacedKey(Realms.plugin, node))
     }
 
+    fun RealmBlock.getAdmin(): String {
+        return this.users.keys.firstOrNull { hasPermission("admin", it, false) }!!
+    }
+
+    fun RealmBlock.isAdmin(player: Player): Boolean {
+        return this.getAdmin() == player.name || player.isOp
+    }
+
+    fun RealmBlock.editName(player: Player) {
+        Features.inputSign(player, arrayOf("", "", "↑请输入领域名称")) { les ->
+            val names = "${les[0]}${les[1]}".screen()
+            if (names.isEmpty()) {
+                player.error("放弃了编辑!")
+                return@inputSign
+            }
+            this.name = names
+            player.info("当前领域名称更改为了 &f$names")
+            openSettings(player)
+            save()
+        }
+    }
+
+    fun RealmBlock.editJoinTell(player: Player) {
+        Features.inputSign(player, arrayOf("", "", "↑请输入进入提示")) { les ->
+            val info = "${les[0]} | ${les[1]}".screen()
+            if (info.isEmpty()) {
+                player.error("放弃了编辑!")
+                return@inputSign
+            }
+            this.joinTell = info
+            player.info("变更成功")
+            openSettings(player)
+            save()
+        }
+    }
+
+    fun RealmBlock.editLeaveTell(player: Player) {
+        Features.inputSign(player, arrayOf("", "", "↑请输入离开提示")) { les ->
+            val info = "${les[0]} | ${les[1]}".screen()
+            if (info.isEmpty()) {
+                player.error("放弃了编辑!")
+                return@inputSign
+            }
+            this.leaveTell = info
+            player.info("变更成功")
+            openSettings(player)
+            save()
+        }
+    }
+
     fun RealmBlock.open(player: Player) {
         player.playSound(player.location, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1f)
         MenuBuilder.builder(Realms.plugin)
             .title("领域管理")
             .rows(3)
-            .items("", "###1#2###")
+            .items("", "#0#1#2#3#")
+            .put('0', ItemBuilder(XMaterial.PAINTING).name("&f领域信息")
+                .lore(
+                    "&7名称: &f${this.name}",
+                    "&7持有者: &f${this.getAdmin()}",
+                )
+                .colored().build())
             .put('1', ItemBuilder(XMaterial.COMMAND_BLOCK).name("&f全局权限").lore("&7将作用于所有玩家").colored().build())
             .put('2', ItemBuilder(XMaterial.CHAIN_COMMAND_BLOCK).name("&f个人权限").lore("&7将作用于特定玩家").colored().build())
+            .put('3', ItemBuilder(XMaterial.OBSERVER).name("&f领域设置").lore("&7一些零散的设置").colored().build())
             .click { e ->
                 when (e.slot) {
+                    '1' -> openPermissionWorld(player)
+                    '2' -> openPermissionUsers(player)
+                    '3' -> openSettings(player)
+                }
+            }.open(player)
+    }
+
+    fun RealmBlock.openSettings(player: Player) {
+        player.playSound(player.location, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1f)
+        MenuBuilder.builder(Realms.plugin)
+            .title("领域管理 [领域设置]")
+            .rows(4)
+            .items("", "#0")
+            .put('0', ItemBuilder(XMaterial.NAME_TAG).name("&f领域名称")
+                .lore(
+                    "&7当前名称: &f${this.name}",
+                    "",
+                    "&7点击编辑:",
+                    "&8名称会在一些场景中用到"
+                )
+                .colored().build())
+            .put('1', ItemBuilder(XMaterial.NAME_TAG).name("&f进入提示")
+                .lore(
+                    "&7当前提示: &f${this.name}",
+                    "",
+                    "&7点击编辑:",
+                    "&8名称会在一些场景中用到"
+                )
+                .colored().build())
+            .click { e ->
+                when (e.slot) {
+                    '0' -> {
+                        if (!this.isAdmin(player)) {
+                            player.error("权限不足!")
+                            return@click
+                        }
+                        this.editName(player)
+                    }
                     '1' -> openPermissionWorld(player)
                     '2' -> openPermissionUsers(player)
                 }
@@ -372,7 +488,13 @@ object RealmManager : Listener {
 
             override fun getRows() = 6
 
-            override fun getElements() = RealmManager.permissions.filter { it.worldSide }.sortedBy { it.priority }
+            override fun getElements(): List<Permission> {
+                val list = RealmManager.permissions.filter { it.worldSide }.sortedBy { it.priority }.toMutableList()
+                if (!player.isOp) {
+                    list.removeAll(list.filter { it.adminSide == player.isOp })
+                }
+                return list
+            }
 
             override fun getSlots() = Items.INVENTORY_CENTER.toList()
 
@@ -390,6 +512,10 @@ object RealmManager : Listener {
             }
 
             override fun onClick(event: ClickEvent, element: Permission) {
+                if (element.adminSide && !player.isOp) {
+                    event.clicker.error("该选项无效!")
+                    return
+                }
                 permissions[element.id] = !hasPermission(element.id, def = element.default)
                 open(page)
                 player.playSound(player.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 2f)
@@ -397,6 +523,9 @@ object RealmManager : Listener {
             }
 
             override fun generateItem(player: Player, element: Permission, index: Int, slot: Int): ItemStack {
+                if (element.adminSide && !player.isOp) {
+                    return ItemStack(Material.BARRIER)
+                }
                 return element.generateMenuItem(hasPermission(element.id, def = element.default))
             }
         }.open()
@@ -414,10 +543,10 @@ object RealmManager : Listener {
                         val playerExact = Bukkit.getPlayerExact(it[0])
                         when {
                             playerExact == null -> {
-                                player.sendMessage("§c用户${it[0]}不在游戏")
+                                player.error("§c用户${it[0]}不在游戏")
                             }
                             playerExact.name == player.name -> {
-                                player.sendMessage("§c你不能添加自己")
+                                player.error("§c你不能添加自己")
                             }
                             else -> {
                                 users[playerExact.name] = HashMap()
@@ -463,9 +592,11 @@ object RealmManager : Listener {
 
             override fun generateItem(player: Player, user: String, index: Int, slot: Int): ItemStack {
                 return if (hasPermission("admin", user)) {
-                    ItemBuilder(XMaterial.PLAYER_HEAD).name("&c管理员 $user").lore("&7点击修改权限").skullOwner(user).colored().build()
+                    ItemBuilder(XMaterial.PLAYER_HEAD).name("&c管理员 $user").lore("&7点击修改权限").skullOwner(user).colored()
+                        .build()
                 } else {
-                    ItemBuilder(XMaterial.PLAYER_HEAD).name("&f用户 $user").lore("&7点击修改权限").skullOwner(user).colored().build()
+                    ItemBuilder(XMaterial.PLAYER_HEAD).name("&f用户 $user").lore("&7点击修改权限").skullOwner(user).colored()
+                        .build()
                 }
             }
         }.open()
@@ -489,7 +620,15 @@ object RealmManager : Listener {
 
             override fun getRows() = 6
 
-            override fun getElements() = RealmManager.permissions.filter { it.playerSide }.sortedBy { it.priority }
+            override fun getElements(): List<Permission> {
+                val list = RealmManager.permissions.filter { it.worldSide }.sortedBy { it.priority }.toMutableList()
+                list.toList().forEach {
+                    if (it.adminSide && !player.isOp) {
+                        list.remove(it)
+                    }
+                }
+                return list
+            }
 
             override fun getSlots() = Items.INVENTORY_CENTER.toList()
 
@@ -539,11 +678,42 @@ object RealmManager : Listener {
             json["extends"].asJsonObject.entrySet().forEach { (k, v) ->
                 realmBlock.extends[Position.at(k.split(",").toLocation(world))] = v.asInt
             }
+            json["name"].asString.also { name ->
+                realmBlock.name = name
+            }
+            json["joinTell"].asString.also { value ->
+                realmBlock.joinTell = value
+            }
+            json["leaveTell"].asString.also { value ->
+                realmBlock.leaveTell = value
+            }
             realmBlock.update()
         }
     }
 
     private fun List<String>.toLocation(world: World): Location {
         return Location(world, Coerce.toDouble(this[0]), Coerce.toDouble(this[1]), Coerce.toDouble(this[2]))
+    }
+
+    @EventHandler
+    fun onJoinEvent(event: RealmsJoinEvent) {
+        val realm = event.realmBlock ?: return
+        val message = realm.joinTell.split(" | ")
+        if (message.size >= 2){
+            TLocale.Display.sendTitle(event.player, message[0], message[1],20,40,20)
+            return
+        }
+        TLocale.Display.sendTitle(event.player, message[0], "",20,40,20)
+    }
+
+    @EventHandler
+    fun onLeaveEvent(event: RealmsLeaveEvent) {
+        val realm = event.realmBlock ?: return
+        val message = realm.leaveTell.split(" | ")
+        if (message.size >= 2){
+            TLocale.Display.sendTitle(event.player, message[0], message[1],20,40,20)
+            return
+        }
+        TLocale.Display.sendTitle(event.player, message[0], "",20,40,20)
     }
 }

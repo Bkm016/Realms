@@ -2,11 +2,13 @@ package ink.ptms.realms.permission
 
 import ink.ptms.realms.RealmManager.getRealm
 import ink.ptms.realms.RealmManager.getRealmBlock
+import ink.ptms.realms.RealmManager.isAdmin
 import ink.ptms.realms.RealmManager.register
 import ink.ptms.realms.util.display
 import ink.ptms.realms.util.warning
 import io.izzel.taboolib.internal.xseries.XMaterial
 import io.izzel.taboolib.module.inject.TFunction
+import io.izzel.taboolib.module.inject.TListener
 import io.izzel.taboolib.util.item.ItemBuilder
 import org.bukkit.block.data.type.*
 import org.bukkit.event.EventHandler
@@ -22,6 +24,7 @@ import org.bukkit.inventory.ItemStack
  * @author sky
  * @since 2021/3/18 9:20 上午
  */
+@TListener
 object PermInteract : Permission, Listener {
 
     @TFunction.Init
@@ -56,7 +59,7 @@ object PermInteract : Permission, Listener {
     fun e(e: PlayerInteractEvent) {
         if (e.action == Action.RIGHT_CLICK_BLOCK) {
             e.clickedBlock?.location?.getRealm()?.run {
-                if (!hasPermission("admin", e.player.name) && !hasPermission("interact", e.player.name)) {
+                if (!isAdmin(e.player) && !hasPermission("interact", e.player.name)) {
                     e.isCancelled = true
                     e.player.warning()
                 }
