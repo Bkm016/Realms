@@ -422,7 +422,7 @@ object RealmManager : Listener, Helper {
 
     fun RealmBlock.editJoinTell(player: Player) {
         Features.inputSign(player, arrayOf("", "", "↑请输入进入提示")) { les ->
-            val info = "${les[0]} | ${les[1]}".screen()
+            val info = "${les[0]} | ${les[1]}"
             if (info.isEmpty()) {
                 player.error("放弃了编辑!")
                 return@inputSign
@@ -436,7 +436,7 @@ object RealmManager : Listener, Helper {
 
     fun RealmBlock.editLeaveTell(player: Player) {
         Features.inputSign(player, arrayOf("", "", "↑请输入离开提示")) { les ->
-            val info = "${les[0]} | ${les[1]}".screen()
+            val info = "${les[0]} | ${les[1]}"
             if (info.isEmpty()) {
                 player.error("放弃了编辑!")
                 return@inputSign
